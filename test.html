@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title></title>
+</head>
+<body>
+    <div style="position: relative">
+        <canvas id="canvas" width="600" height="400" style="position: absolute; left: 0; top: 0; z-index: 0;"></canvas>
+
+        <canvas id="canvas-candle" width="600" height="400" style="position: absolute; left: 0; top: 0; z-index: 1;"></canvas>
+    </div>
+
+    <script src="lib/jquery.js"></script>
+    <script src="lib/hsData.js"></script>
+    <script src="dist/all.js"></script>
+
+    <script>
+        function getMousePos(canvas, evt) {
+            var rect = canvas.getBoundingClientRect();
+            return {
+                x: evt.clientX - rect.left,
+                y: evt.clientY - rect.top
+            };
+        }
+
+        function x1(opt){
+            var begin = opt.begin,
+                    end = opt.end;
+            if(end<=begin){
+                console.error('begin should less than end')
+            }
+            var len = end-begin;
+            var gap = gap || 0;
+
+            var xs = []
+            if(opt.count){
+                var count  = opt.count;
+                //var width = (len-(count-1)*gap)/count
+                var width = (len+gap)/count - gap
+                for(var i = 0;i<count;i++){
+                    xs.push(i*(width+gap))
+                }
+                return xs;
+            }else{
+                var width = opt.width;
+//		var space = width+gap;
+                var divObj = integerDivide(len+gap,width+gap)
+                var count = divObj.div
+                var offset = divObj.rem
+                width = width + offset/count;
+                //TODO
+            }
+
+        }
+
+        var CandleDataPriceTransformer = WscnChart.DataTransform.CandleDataPriceTransformer
+
+        function keyValueInvert(kvObj){
+            var vkObj={}
+            for(var i in kvObj){
+                vkObj[kvObj[i]] = i;
+            }
+            return vkObj;
+        }
+        var kline = new HsDataFactoryList.kline({
+            get_type:'range',
+            prod_code:'600570.SS',
+            candle_period:1,
+            start_date:'20150703'
+        })
+
+       kline.onDataReady(function(e){
+            var candle = e.data.candle;
+            var _m = keyValueInvert(candle.fields)
+            var localData = []
+            for(var i in candle){
+                if(i =='fields'){continue}
+                for(var j =0;j<candle[i].length;j++){
+                    var cd = candle[i][j]
+                    localData.push({
+                        open:cd[_m['open_px']],
+                        high:cd[_m['high_px']],
+                        low:cd[_m['low_px']],
+                        close:cd[_m['close_px']],
+                        y:cd[_m['close_px']]
+                    })
+                }
+            }
+           var canvanData = CandleDataPriceTransformer({data:localData,range:[0,350]})
+
+           console.log(canvanData)
+           var ctx = document.getElementById('canvas').getContext('2d')
+
+           var ctx2 = document.getElementById('canvas-candle').getContext('2d')
+
+           var canvasCandle= document.getElementById('canvas-candle');
+           canvasCandle.onmousemove=function(e){
+               var pos = getMousePos(canvasCandle, e);
+               var posx = pos.x;
+               var posy = pos.y;
+               ctx2.clearRect(0,0,600,400);
+               ctx2.beginPath();
+               ctx2.strokeStyle = "#000000";
+               ctx2.setLineDash([5,3])
+               ctx2.moveTo(posx,0)
+               ctx2.lineTo(posx,400)
+
+               ctx2.moveTo(0,posy)
+               ctx2.lineTo(600,posy)
+               ctx2.stroke()
+           }
+
+           var PainterFactory = WscnChart.PainterFactory
+
+           var xs = []
+           for(var i = 0;i<240;i++){
+               xs.push(i*2+2);
+           }
+
+           var linePainter = new  PainterFactory.LinePainter();
+           linePainter.setData(canvanData)
+                   .setStyle({strokeStyle:'red'})
+                   .setXAxis(x1({begin:0,end:600,count:240}))
+           var layout = new WscnChart.Layout({
+               ctx:ctx,
+               canvasY:[0,350],
+               canvasX:[0,600],
+               xAxis:x1({begin:0,end:600,count:240})//这个xAxis要传给所有的Painter
+           });
+           layout.addPainter(linePainter)
+                   .render();
+
+
+       }).init();
+    </script>
+
+
+</body>
+</html>
